@@ -5,7 +5,7 @@
 	icon_state = "seed-grass"
 	species = "grass"
 	plantname = "Grass"
-	product = /obj/item/weapon/reagent_containers/food/snacks/grown/grass
+	product = /obj/item/reagent_containers/food/snacks/grown/grass
 	lifespan = 40
 	endurance = 40
 	maturation = 2
@@ -15,10 +15,10 @@
 	icon_grow = "grass-grow"
 	icon_dead = "grass-dead"
 	genes = list(/datum/plant_gene/trait/repeated_harvest)
-	mutatelist = list(/obj/item/seeds/grass/carpet)
-	reagents_add = list("nutriment" = 0.02, "hydrogen" = 0.05)
+	mutatelist = list(/obj/item/seeds/grass/carpet, /obj/item/seeds/grass/fairy)
+	reagents_add = list(/datum/reagent/consumable/nutriment = 0.02, /datum/reagent/hydrogen = 0.05)
 
-/obj/item/weapon/reagent_containers/food/snacks/grown/grass
+/obj/item/reagent_containers/food/snacks/grown/grass
 	seed = /obj/item/seeds/grass
 	name = "grass"
 	desc = "Green and lush."
@@ -27,28 +27,39 @@
 	bitesize_mod = 2
 	var/stacktype = /obj/item/stack/tile/grass
 	var/tile_coefficient = 0.02 // 1/50
+	wine_power = 15
 
-/obj/item/weapon/reagent_containers/food/snacks/grown/grass/attack_self(mob/user)
-	user << "<span class='notice'>You prepare the astroturf.</span>"
+/obj/item/reagent_containers/food/snacks/grown/grass/attack_self(mob/user)
+	to_chat(user, "<span class='notice'>You prepare the astroturf.</span>")
 	var/grassAmt = 1 + round(seed.potency * tile_coefficient) // The grass we're holding
-	for(var/obj/item/weapon/reagent_containers/food/snacks/grown/grass/G in user.loc) // The grass on the floor
+	for(var/obj/item/reagent_containers/food/snacks/grown/grass/G in user.loc) // The grass on the floor
 		if(G.type != type)
 			continue
 		grassAmt += 1 + round(G.seed.potency * tile_coefficient)
 		qdel(G)
-	var/obj/item/stack/tile/GT = new stacktype(user.loc)
-	while(grassAmt > GT.max_amount)
-		GT.amount = GT.max_amount
-		grassAmt -= GT.max_amount
-		GT = new stacktype(user.loc)
-	GT.amount = grassAmt
-	for(var/obj/item/stack/tile/T in user.loc)
-		if((T.type == stacktype) && (T.amount < T.max_amount))
-			GT.merge(T)
-			if(GT.amount <= 0)
-				break
+	new stacktype(user.drop_location(), grassAmt)
 	qdel(src)
-	return
+
+//Fairygrass
+/obj/item/seeds/grass/fairy
+	name = "pack of fairygrass seeds"
+	desc = "These seeds grow into a more mystical grass."
+	icon_state = "seed-fairygrass"
+	species = "fairygrass"
+	plantname = "Fairygrass"
+	product = /obj/item/reagent_containers/food/snacks/grown/grass/fairy
+	icon_grow = "fairygrass-grow"
+	icon_dead = "fairygrass-dead"
+	genes = list(/datum/plant_gene/trait/repeated_harvest, /datum/plant_gene/trait/glow/blue)
+	reagents_add = list(/datum/reagent/consumable/nutriment = 0.02, /datum/reagent/hydrogen = 0.05, /datum/reagent/drug/space_drugs = 0.15)
+
+/obj/item/reagent_containers/food/snacks/grown/grass/fairy
+	seed = /obj/item/seeds/grass/fairy
+	name = "fairygrass"
+	desc = "Blue, glowing, and smells fainly of mushrooms."
+	icon_state = "fairygrassclump"
+	filling_color = "#3399ff"
+	stacktype = /obj/item/stack/tile/fairygrass
 
 // Carpet
 /obj/item/seeds/grass/carpet
@@ -57,13 +68,14 @@
 	icon_state = "seed-carpet"
 	species = "carpet"
 	plantname = "Carpet"
-	product = /obj/item/weapon/reagent_containers/food/snacks/grown/grass/carpet
+	product = /obj/item/reagent_containers/food/snacks/grown/grass/carpet
 	mutatelist = list()
 	rarity = 10
 
-/obj/item/weapon/reagent_containers/food/snacks/grown/grass/carpet
+/obj/item/reagent_containers/food/snacks/grown/grass/carpet
 	seed = /obj/item/seeds/grass/carpet
 	name = "carpet"
 	desc = "The textile industry's dark secret."
 	icon_state = "carpetclump"
 	stacktype = /obj/item/stack/tile/carpet
+	can_distill = FALSE

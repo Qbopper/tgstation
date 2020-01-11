@@ -8,33 +8,36 @@ would spawn and follow the beaker, even if it is carried or thrown.
 
 /obj/effect/particle_effect
 	name = "particle effect"
-	mouse_opacity = 0
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 	pass_flags = PASSTABLE | PASSGRILLE
+	anchored = TRUE
 
-/obj/effect/particle_effect/New()
-	..()
-	if(ticker)
-		cameranet.updateVisibility(src)
+/obj/effect/particle_effect/Initialize()
+	. = ..()
+	GLOB.cameranet.updateVisibility(src)
 
 /obj/effect/particle_effect/Destroy()
-	if(ticker)
-		cameranet.updateVisibility(src)
-	. = ..()
+	GLOB.cameranet.updateVisibility(src)
+	return ..()
+
+/obj/effect/particle_effect/newtonian_move() // Prevents effects from getting registered for SSspacedrift
+	return TRUE
 
 /datum/effect_system
 	var/number = 3
-	var/cardinals = 0
+	var/cardinals = FALSE
 	var/turf/location
 	var/atom/holder
 	var/effect_type
 	var/total_effects = 0
+	var/autocleanup = FALSE //will delete itself after use
 
 /datum/effect_system/Destroy()
 	holder = null
 	location = null
 	return ..()
 
-/datum/effect_system/proc/set_up(n = 3, c = 0, loca)
+/datum/effect_system/proc/set_up(n = 3, c = FALSE, loca)
 	if(n > 10)
 		n = 10
 	number = n
@@ -48,6 +51,8 @@ would spawn and follow the beaker, even if it is carried or thrown.
 	holder = atom
 
 /datum/effect_system/proc/start()
+	if(QDELETED(src))
+		return
 	for(var/i in 1 to number)
 		if(total_effects > 20)
 			return
@@ -60,14 +65,17 @@ would spawn and follow the beaker, even if it is carried or thrown.
 	total_effects++
 	var/direction
 	if(cardinals)
-		direction = pick(cardinal)
+		direction = pick(GLOB.cardinals)
 	else
-		direction = pick(alldirs)
+		direction = pick(GLOB.alldirs)
 	var/steps_amt = pick(1,2,3)
 	for(var/j in 1 to steps_amt)
 		sleep(5)
 		step(E,direction)
-	addtimer(CALLBACK(src, .proc/decrement_total_effect), 20)
+	if(!QDELETED(src))
+		addtimer(CALLBACK(src, .proc/decrement_total_effect), 20)
 
 /datum/effect_system/proc/decrement_total_effect()
 	total_effects--
+	if(autocleanup && total_effects <= 0)
+		qdel(src)

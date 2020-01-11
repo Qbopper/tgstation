@@ -11,6 +11,12 @@
 		return text
 	return default
 
+/proc/sanitize_islist(value, default)
+	if(islist(value) && length(value))
+		return value
+	if(default)
+		return default
+		
 /proc/sanitize_inlist(value, list/List, default)
 	if(value in List)
 		return value
@@ -22,7 +28,7 @@
 
 
 //more specialised stuff
-/proc/sanitize_gender(gender,neuter=0,plural=0, default="male")
+/proc/sanitize_gender(gender,neuter=0,plural=1, default="male")
 	switch(gender)
 		if(MALE, FEMALE)
 			return gender
@@ -43,24 +49,24 @@
 	if(!istext(color))
 		color = ""
 
-	var/start = 1 + (text2ascii(color,1)==35)
+	var/start = 1 + (text2ascii(color, 1) == 35)
 	var/len = length(color)
-	var/step_size = 1 + ((len+1)-start != desired_format)
+	var/char = ""
 
 	. = ""
-	for(var/i=start, i<=len, i+=step_size)
-		var/ascii = text2ascii(color,i)
-		switch(ascii)
-			if(48 to 57)
-				. += ascii2text(ascii)		//numbers 0 to 9
-			if(97 to 102)
-				. += ascii2text(ascii)		//letters a to f
-			if(65 to 70)
-				. += ascii2text(ascii+32)	//letters A to F - translates to lowercase
+	for(var/i = start, i <= len, i += length(char))
+		char = color[i]
+		switch(text2ascii(char))
+			if(48 to 57)		//numbers 0 to 9
+				. += char
+			if(97 to 102)		//letters a to f
+				. += char
+			if(65 to 70)		//letters A to F
+				. += lowertext(char)
 			else
 				break
 
-	if(length(.) != desired_format)
+	if(length_char(.) != desired_format)
 		if(default)
 			return default
 		return crunch + repeat_string(desired_format, "0")

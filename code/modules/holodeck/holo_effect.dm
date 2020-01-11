@@ -32,7 +32,7 @@
 
 /obj/effect/holodeck_effect/cards/activate(var/obj/machinery/computer/holodeck/HC)
 	D = new(loc)
-	safety(!HC.emagged)
+	safety(!(HC.obj_flags & EMAGGED))
 	D.holo = HC
 	return D
 
@@ -74,6 +74,7 @@
 	if(islist(mobtype))
 		mobtype = pick(mobtype)
 	mob = new mobtype(loc)
+	mob.flags_1 |= HOLOGRAM_1
 
 	// these vars are not really standardized but all would theoretically create stuff on death
 	for(var/v in list("butcher_results","corpse","weapon1","weapon2","blood_volume") & mob.vars)
@@ -97,3 +98,14 @@
 
 /obj/effect/holodeck_effect/mobspawner/monkey
 	mobtype = /mob/living/simple_animal/holodeck_monkey
+
+/obj/effect/holodeck_effect/mobspawner/penguin
+	mobtype = /mob/living/simple_animal/pet/penguin/emperor
+	
+/obj/effect/holodeck_effect/mobspawner/penguin/Initialize()
+	if(prob(1))
+		mobtype = /mob/living/simple_animal/pet/penguin/emperor/shamebrero
+	return ..()
+
+/obj/effect/holodeck_effect/mobspawner/penguin_baby
+	mobtype = /mob/living/simple_animal/pet/penguin/baby

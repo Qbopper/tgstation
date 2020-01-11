@@ -12,32 +12,29 @@
 //Returns an integer given a hex input, supports negative values "-ff"
 //skips preceding invalid characters
 //breaks when hittin invalid characters thereafter
-/proc/hex2num(hex)
+// If safe=TRUE, returns null on incorrect input strings instead of CRASHing
+/proc/hex2num(hex, safe=FALSE)
 	. = 0
-	if(istext(hex))
-		var/negative = 0
-		var/len = length(hex)
-		for(var/i=1, i<=len, i++)
-			var/num = text2ascii(hex,i)
-			switch(num)
-				if(48 to 57)
-					num -= 48	//0-9
-				if(97 to 102)
-					num -= 87	//a-f
-				if(65 to 70)
-					num -= 55	//A-F
-				if(45)
-					negative = 1//-
+	var/place = 1
+	for(var/i in length(hex) to 1 step -1)
+		var/num = text2ascii(hex, i)
+		switch(num)
+			if(48 to 57)
+				num -= 48	//0-9
+			if(97 to 102)
+				num -= 87	//a-f
+			if(65 to 70)
+				num -= 55	//A-F
+			if(45)
+				return . * -1 // -
+			else
+				if(safe)
+					return null
 				else
-					if(num)
-						break
-					else
-						continue
-			. *= 16
-			. += num
-		if(negative)
-			. *= -1
-	return .
+					CRASH("Malformed hex number")
+
+		. += num * place
+		place *= 16
 
 //Returns the hex value of a decimal number
 //len == length of returned string
@@ -72,28 +69,30 @@
 	return .
 
 //Splits the text of a file at seperator and returns them in a list.
-/proc/file2list(filename, seperator="\n")
-	return splittext(return_file_text(filename),seperator)
-
+//returns an empty list if the file doesn't exist
+/world/proc/file2list(filename, seperator="\n", trim = TRUE)
+	if (trim)
+		return splittext(trim(file2text(filename)),seperator)
+	return splittext(file2text(filename),seperator)
 
 //Turns a direction into text
 /proc/dir2text(direction)
 	switch(direction)
-		if(1)
+		if(NORTH)
 			return "north"
-		if(2)
+		if(SOUTH)
 			return "south"
-		if(4)
+		if(EAST)
 			return "east"
-		if(8)
+		if(WEST)
 			return "west"
-		if(5)
+		if(NORTHEAST)
 			return "northeast"
-		if(6)
+		if(SOUTHEAST)
 			return "southeast"
-		if(9)
+		if(NORTHWEST)
 			return "northwest"
-		if(10)
+		if(SOUTHWEST)
 			return "southwest"
 		else
 	return
@@ -102,47 +101,60 @@
 /proc/text2dir(direction)
 	switch(uppertext(direction))
 		if("NORTH")
-			return 1
+			return NORTH
 		if("SOUTH")
-			return 2
+			return SOUTH
 		if("EAST")
-			return 4
+			return EAST
 		if("WEST")
-			return 8
+			return WEST
 		if("NORTHEAST")
-			return 5
+			return NORTHEAST
 		if("NORTHWEST")
-			return 9
+			return NORTHWEST
 		if("SOUTHEAST")
-			return 6
+			return SOUTHEAST
 		if("SOUTHWEST")
-			return 10
+			return SOUTHWEST
 		else
 	return
 
 //Converts an angle (degrees) into an ss13 direction
 /proc/angle2dir(degree)
+	degree = SIMPLIFY_DEGREES(degree)
+	switch(degree)
+		if(0 to 22.5) //north requires two angle ranges
+			return NORTH
+		if(22.5 to 67.5) //each range covers 45 degrees
+			return NORTHEAST
+		if(67.5 to 112.5)
+			return EAST
+		if(112.5 to 157.5)
+			return SOUTHEAST
+		if(157.5 to 202.5)
+			return SOUTH
+		if(202.5 to 247.5)
+			return SOUTHWEST
+		if(247.5 to 292.5)
+			return WEST
+		if(292.5 to 337.5)
+			return NORTHWEST
+		if(337.5 to 360)
+			return NORTH
 
-	degree = SimplifyDegrees(degree)
-
-	if(degree < 45)
-		return NORTH
-	if(degree < 90)
-		return NORTHEAST
-	if(degree < 135)
-		return EAST
-	if(degree < 180)
-		return SOUTHEAST
-	if(degree < 225)
-		return SOUTH
-	if(degree < 270)
-		return SOUTHWEST
-	if(degree < 315)
-		return WEST
-	return NORTH|WEST
+/proc/angle2dir_cardinal(degree)
+	degree = SIMPLIFY_DEGREES(degree)
+	switch(round(degree, 0.1))
+		if(315.5 to 360, 0 to 45.5)
+			return NORTH
+		if(45.6 to 135.5)
+			return EAST
+		if(135.6 to 225.5)
+			return SOUTH
+		if(225.6 to 315.5)
+			return WEST
 
 //returns the north-zero clockwise angle in degrees, given a direction
-
 /proc/dir2angle(D)
 	switch(D)
 		if(NORTH)
@@ -181,54 +193,41 @@
 			return ICON_OVERLAY
 
 //Converts a rights bitfield into a string
-/proc/rights2text(rights, seperator="", list/adds, list/subs)
-	if(rights & R_BUILDMODE)
-		. += "[seperator]+BUILDMODE"
+/proc/rights2text(rights, seperator="", prefix = "+")
+	seperator += prefix
+	if(rights & R_BUILD)
+		. += "[seperator]BUILDMODE"
 	if(rights & R_ADMIN)
-		. += "[seperator]+ADMIN"
+		. += "[seperator]ADMIN"
 	if(rights & R_BAN)
-		. += "[seperator]+BAN"
+		. += "[seperator]BAN"
 	if(rights & R_FUN)
-		. += "[seperator]+FUN"
+		. += "[seperator]FUN"
 	if(rights & R_SERVER)
-		. += "[seperator]+SERVER"
+		. += "[seperator]SERVER"
 	if(rights & R_DEBUG)
-		. += "[seperator]+DEBUG"
+		. += "[seperator]DEBUG"
 	if(rights & R_POSSESS)
-		. += "[seperator]+POSSESS"
+		. += "[seperator]POSSESS"
 	if(rights & R_PERMISSIONS)
-		. += "[seperator]+PERMISSIONS"
+		. += "[seperator]PERMISSIONS"
 	if(rights & R_STEALTH)
-		. += "[seperator]+STEALTH"
-	if(rights & R_REJUVINATE)
-		. += "[seperator]+REJUVINATE"
+		. += "[seperator]STEALTH"
+	if(rights & R_POLL)
+		. += "[seperator]POLL"
 	if(rights & R_VAREDIT)
-		. += "[seperator]+VAREDIT"
-	if(rights & R_SOUNDS)
-		. += "[seperator]+SOUND"
+		. += "[seperator]VAREDIT"
+	if(rights & R_SOUND)
+		. += "[seperator]SOUND"
 	if(rights & R_SPAWN)
-		. += "[seperator]+SPAWN"
-
-	for(var/verbpath in adds)
-		. += "[seperator]+[verbpath]"
-	for(var/verbpath in subs)
-		. += "[seperator]-[verbpath]"
+		. += "[seperator]SPAWN"
+	if(rights & R_AUTOADMIN)
+		. += "[seperator]AUTOLOGIN"
+	if(rights & R_DBRANKS)
+		. += "[seperator]DBRANKS"
+	if(!.)
+		. = "NONE"
 	return .
-
-/proc/ui_style2icon(ui_style)
-	switch(ui_style)
-		if("Retro")
-			return 'icons/mob/screen_retro.dmi'
-		if("Plasmafire")
-			return 'icons/mob/screen_plasmafire.dmi'
-		if("Slimecore")
-			return 'icons/mob/screen_slimecore.dmi'
-		if("Operative")
-			return 'icons/mob/screen_operative.dmi'
-		if("Clockwork")
-			return 'icons/mob/screen_clockwork.dmi'
-		else
-			return 'icons/mob/screen_midnight.dmi'
 
 //colour formats
 /proc/rgb2hsl(red, green, blue)
@@ -295,62 +294,6 @@
 		return (a+(b-a)*((2/3)-hue)*6)
 	return a
 
-// Very ugly, BYOND doesn't support unix time and rounding errors make it really hard to convert it to BYOND time.
-// returns "YYYY-MM-DD" by default
-/proc/unix2date(timestamp, seperator = "-")
-
-	if(timestamp < 0)
-		return 0 //Do not accept negative values
-
-	var/year = 1970 //Unix Epoc begins 1970-01-01
-	var/dayInSeconds = 86400 //60secs*60mins*24hours
-	var/daysInYear = 365 //Non Leap Year
-	var/daysInLYear = daysInYear + 1//Leap year
-	var/days = round(timestamp / dayInSeconds) //Days passed since UNIX Epoc
-	var/tmpDays = days + 1 //If passed (timestamp < dayInSeconds), it will return 0, so add 1
-	var/monthsInDays = list() //Months will be in here ***Taken from the PHP source code***
-	var/month = 1 //This will be the returned MONTH NUMBER.
-	var/day //This will be the returned day number.
-
-	while(tmpDays > daysInYear) //Start adding years to 1970
-		year++
-		if(isLeap(year))
-			tmpDays -= daysInLYear
-		else
-			tmpDays -= daysInYear
-
-	if(isLeap(year)) //The year is a leap year
-		monthsInDays = list(-1,30,59,90,120,151,181,212,243,273,304,334)
-	else
-		monthsInDays = list(0,31,59,90,120,151,181,212,243,273,304,334)
-
-	var/mDays = 0;
-	var/monthIndex = 0;
-
-	for(var/m in monthsInDays)
-		monthIndex++
-		if(tmpDays > m)
-			mDays = m
-			month = monthIndex
-
-	day = tmpDays - mDays //Setup the date
-
-	return "[year][seperator][((month < 10) ? "0[month]" : month)][seperator][((day < 10) ? "0[day]" : day)]"
-
-/*
-var/list/test_times = list("December" = 1323522004, "August" = 1123522004, "January" = 1011522004,
-						   "Jan Leap" = 946684800, "Jan Normal" = 978307200, "New Years Eve" = 1009670400,
-						   "New Years" = 1009836000, "New Years 2" = 1041372000, "New Years 3" = 1104530400,
-						   "July Month End" = 744161003, "July Month End 12" = 1343777003, "End July" = 1091311200)
-for(var/t in test_times)
-	world.log << "TEST: [t] is [unix2date(test_times[t])]"
-*/
-
-/proc/isLeap(y)
-	return ((y) % 4 == 0 && ((y) % 100 != 0 || (y) % 400 == 0))
-
-
-
 //Turns a Body_parts_covered bitfield into a list of organ/limb names.
 //(I challenge you to find a use for this)
 /proc/body_parts_covered2organ_names(bpc)
@@ -360,51 +303,72 @@ for(var/t in test_times)
 		return 0
 
 	if(bpc & FULL_BODY)
-		covered_parts |= list("l_arm","r_arm","head","chest","l_leg","r_leg")
+		covered_parts |= list(BODY_ZONE_L_ARM,BODY_ZONE_R_ARM,BODY_ZONE_HEAD,BODY_ZONE_CHEST,BODY_ZONE_L_LEG,BODY_ZONE_R_LEG)
 
 	else
 		if(bpc & HEAD)
-			covered_parts |= list("head")
+			covered_parts |= list(BODY_ZONE_HEAD)
 		if(bpc & CHEST)
-			covered_parts |= list("chest")
+			covered_parts |= list(BODY_ZONE_CHEST)
 		if(bpc & GROIN)
-			covered_parts |= list("chest")
+			covered_parts |= list(BODY_ZONE_CHEST)
 
 		if(bpc & ARMS)
-			covered_parts |= list("l_arm","r_arm")
+			covered_parts |= list(BODY_ZONE_L_ARM,BODY_ZONE_R_ARM)
 		else
 			if(bpc & ARM_LEFT)
-				covered_parts |= list("l_arm")
+				covered_parts |= list(BODY_ZONE_L_ARM)
 			if(bpc & ARM_RIGHT)
-				covered_parts |= list("r_arm")
+				covered_parts |= list(BODY_ZONE_R_ARM)
 
 		if(bpc & HANDS)
-			covered_parts |= list("l_arm","r_arm")
+			covered_parts |= list(BODY_ZONE_L_ARM,BODY_ZONE_R_ARM)
 		else
 			if(bpc & HAND_LEFT)
-				covered_parts |= list("l_arm")
+				covered_parts |= list(BODY_ZONE_L_ARM)
 			if(bpc & HAND_RIGHT)
-				covered_parts |= list("r_arm")
+				covered_parts |= list(BODY_ZONE_R_ARM)
 
 		if(bpc & LEGS)
-			covered_parts |= list("l_leg","r_leg")
+			covered_parts |= list(BODY_ZONE_L_LEG,BODY_ZONE_R_LEG)
 		else
 			if(bpc & LEG_LEFT)
-				covered_parts |= list("l_leg")
+				covered_parts |= list(BODY_ZONE_L_LEG)
 			if(bpc & LEG_RIGHT)
-				covered_parts |= list("r_leg")
+				covered_parts |= list(BODY_ZONE_R_LEG)
 
 		if(bpc & FEET)
-			covered_parts |= list("l_leg","r_leg")
+			covered_parts |= list(BODY_ZONE_L_LEG,BODY_ZONE_R_LEG)
 		else
 			if(bpc & FOOT_LEFT)
-				covered_parts |= list("l_leg")
+				covered_parts |= list(BODY_ZONE_L_LEG)
 			if(bpc & FOOT_RIGHT)
-				covered_parts |= list("r_leg")
+				covered_parts |= list(BODY_ZONE_R_LEG)
 
 	return covered_parts
 
+/proc/slot2body_zone(slot)
+	switch(slot)
+		if(ITEM_SLOT_BACK, ITEM_SLOT_OCLOTHING, ITEM_SLOT_ICLOTHING, ITEM_SLOT_BELT, ITEM_SLOT_ID)
+			return BODY_ZONE_CHEST
 
+		if(ITEM_SLOT_GLOVES, ITEM_SLOT_HANDS, ITEM_SLOT_HANDCUFFED)
+			return pick(BODY_ZONE_PRECISE_L_HAND, BODY_ZONE_PRECISE_R_HAND)
+
+		if(ITEM_SLOT_HEAD, ITEM_SLOT_NECK, ITEM_SLOT_NECK, ITEM_SLOT_EARS)
+			return BODY_ZONE_HEAD
+
+		if(ITEM_SLOT_MASK)
+			return BODY_ZONE_PRECISE_MOUTH
+
+		if(ITEM_SLOT_EYES)
+			return BODY_ZONE_PRECISE_EYES
+
+		if(ITEM_SLOT_FEET)
+			return pick(BODY_ZONE_PRECISE_R_FOOT, BODY_ZONE_PRECISE_L_FOOT)
+
+		if(ITEM_SLOT_LEGCUFFED)
+			return pick(BODY_ZONE_L_LEG, BODY_ZONE_R_LEG)
 
 //adapted from http://www.tannerhelland.com/4435/convert-temperature-rgb-algorithm-code/
 /proc/heat2colour(temp)
@@ -436,6 +400,7 @@ for(var/t in test_times)
 			. = 0
 		else
 			. = max(0, min(255, 138.5177312231 * log(temp - 10) - 305.0447927307))
+
 
 /proc/color2hex(color)	//web colors
 	if(!color)
@@ -491,7 +456,7 @@ for(var/t in test_times)
 //The string is well, obviously the string being checked
 //The datum is used as a source for var names, to check validity
 //Otherwise every single word could technically be a variable!
-/proc/string2listofvars(var/t_string, var/datum/var_source)
+/proc/string2listofvars(t_string, datum/var_source)
 	if(!t_string || !var_source)
 		return list()
 
@@ -547,3 +512,40 @@ for(var/t in test_times)
 	if(!istype(the_matrix) || the_matrix.len != 20)
 		return "#ffffffff"
 	return rgb(the_matrix[1]*255, the_matrix[6]*255, the_matrix[11]*255, the_matrix[16]*255)
+
+/proc/type2parent(child)
+	var/string_type = "[child]"
+	var/last_slash = findlasttext(string_type, "/")
+	if(last_slash == 1)
+		switch(child)
+			if(/datum)
+				return null
+			if(/obj || /mob)
+				return /atom/movable
+			if(/area || /turf)
+				return /atom
+			else
+				return /datum
+	return text2path(copytext(string_type, 1, last_slash))
+
+//returns a string the last bit of a type, without the preceeding '/'
+/proc/type2top(the_type)
+	//handle the builtins manually
+	if(!ispath(the_type))
+		return
+	switch(the_type)
+		if(/datum)
+			return "datum"
+		if(/atom)
+			return "atom"
+		if(/obj)
+			return "obj"
+		if(/mob)
+			return "mob"
+		if(/area)
+			return "area"
+		if(/turf)
+			return "turf"
+		else //regex everything else (works for /proc too)
+			return lowertext(replacetext("[the_type]", "[type2parent(the_type)]/", ""))
+

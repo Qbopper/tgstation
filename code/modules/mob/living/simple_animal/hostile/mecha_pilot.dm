@@ -23,6 +23,7 @@
 	desc = "Death to Nanotrasen. This variant comes in MECHA DEATH flavour."
 	wanted_objects = list()
 	search_objects = 0
+	mob_biotypes = MOB_ORGANIC|MOB_HUMANOID
 
 	var/spawn_mecha_type = /obj/mecha/combat/marauder/mauler/loaded
 	var/obj/mecha/mecha //Ref to pilot's mecha instance
@@ -31,7 +32,7 @@
 
 	//Vars that control when the pilot uses their mecha's abilities (if the mecha has that ability)
 	var/threat_use_mecha_smoke = 5 //5 mobs is enough to engage crowd control
-	var/defence_mode_chance = 35 //Chance to engage Defence mode when damaged
+	var/defense_mode_chance = 35 //Chance to engage Defense mode when damaged
 	var/smoke_chance = 20 //Chance to deploy smoke for crowd control
 	var/retreat_chance = 40 //Chance to run away
 
@@ -39,9 +40,9 @@
 	spawn_mecha_type = null
 	search_objects = 2
 
-/mob/living/simple_animal/hostile/syndicate/mecha_pilot/no_mech/New()
-	..()
-	wanted_objects = typecacheof(/obj/mecha/combat, ignore_root_path=TRUE)
+/mob/living/simple_animal/hostile/syndicate/mecha_pilot/no_mech/Initialize()
+	. = ..()
+	wanted_objects = typecacheof(/obj/mecha/combat, TRUE)
 
 /mob/living/simple_animal/hostile/syndicate/mecha_pilot/nanotrasen //nanotrasen are syndies! no it's just a weird path.
 	name = "Nanotrasen Mecha Pilot"
@@ -59,8 +60,8 @@
 	faction = list("nanotrasen")
 
 
-/mob/living/simple_animal/hostile/syndicate/mecha_pilot/New()
-	..()
+/mob/living/simple_animal/hostile/syndicate/mecha_pilot/Initialize()
+	. = ..()
 	if(spawn_mecha_type)
 		var/obj/mecha/M = new spawn_mecha_type (get_turf(src))
 		if(istype(M))
@@ -77,7 +78,7 @@
 	var/do_ranged = 0
 	for(var/equip in mecha.equipment)
 		var/obj/item/mecha_parts/mecha_equipment/ME = equip
-		if(ME.range & RANGED)
+		if(ME.range & MECHA_RANGED)
 			do_ranged = 1
 			break
 	if(do_ranged)
@@ -101,7 +102,7 @@
 	targets_from = src
 
 	//Find a new mecha
-	wanted_objects = typecacheof(/obj/mecha/combat, ignore_root_path=TRUE)
+	wanted_objects = typecacheof(/obj/mecha/combat, TRUE)
 	var/search_aggressiveness = 2
 	for(var/obj/mecha/combat/C in range(vision_range,src))
 		if(is_valid_mecha(C))
@@ -143,7 +144,7 @@
 				ME.rearm()
 
 
-/mob/living/simple_animal/hostile/syndicate/mecha_pilot/proc/get_mecha_equip_by_flag(flag = RANGED)
+/mob/living/simple_animal/hostile/syndicate/mecha_pilot/proc/get_mecha_equip_by_flag(flag = MECHA_RANGED)
 	. = list()
 	if(mecha)
 		for(var/equip in mecha.equipment)
@@ -159,7 +160,7 @@
 	if(mecha)
 		mecha_reload()
 		mecha_face_target(A)
-		var/list/possible_weapons = get_mecha_equip_by_flag(RANGED)
+		var/list/possible_weapons = get_mecha_equip_by_flag(MECHA_RANGED)
 		if(possible_weapons.len)
 			var/obj/item/mecha_parts/mecha_equipment/ME = pick(possible_weapons) //so we don't favor mecha.equipment[1] forever
 			if(ME.action(A))
@@ -172,7 +173,7 @@
 
 /mob/living/simple_animal/hostile/syndicate/mecha_pilot/AttackingTarget()
 	if(mecha)
-		var/list/possible_weapons = get_mecha_equip_by_flag(MELEE)
+		var/list/possible_weapons = get_mecha_equip_by_flag(MECHA_MELEE)
 		if(possible_weapons.len)
 			var/obj/item/mecha_parts/mecha_equipment/ME = pick(possible_weapons)
 			mecha_face_target(target)
@@ -184,7 +185,7 @@
 			mecha_face_target(target)
 			target.mech_melee_attack(mecha)
 	else
-		if(istype(target, /obj/mecha))
+		if(ismecha(target))
 			var/obj/mecha/M = target
 			if(is_valid_mecha(M))
 				enter_mecha(M)
@@ -194,7 +195,7 @@
 					target = null
 					return
 
-		target.attack_animal(src)
+		return target.attack_animal(src)
 
 
 /mob/living/simple_animal/hostile/syndicate/mecha_pilot/handle_automated_action()
@@ -225,23 +226,22 @@
 				if(mecha.smoke_action && mecha.smoke_action.owner && mecha.smoke)
 					mecha.smoke_action.Activate()
 
-			//Heavy damage - Defence Power or Retreat
+			//Heavy damage - Defense Power or Retreat
 			if(mecha.obj_integrity < mecha.max_integrity*0.25)
-				if(prob(defence_mode_chance))
-					if(mecha.defense_action && mecha.defense_action.owner && !mecha.defence_mode)
+				if(prob(defense_mode_chance))
+					if(mecha.defense_action && mecha.defense_action.owner && !mecha.defense_mode)
 						mecha.leg_overload_mode = 0
 						mecha.defense_action.Activate(TRUE)
-						addtimer(CALLBACK(mecha.defense_action, /datum/action/innate/mecha/mech_defence_mode.proc/Activate, FALSE), 100) //10 seconds of defence, then toggle off
+						addtimer(CALLBACK(mecha.defense_action, /datum/action/innate/mecha/mech_defense_mode.proc/Activate, FALSE), 100) //10 seconds of defense, then toggle off
 
 				else if(prob(retreat_chance))
 					//Speed boost if possible
 					if(mecha.overload_action && mecha.overload_action.owner && !mecha.leg_overload_mode)
 						mecha.overload_action.Activate(TRUE)
-						addtimer(CALLBACK(mecha.overload_action, /datum/action/innate/mecha/mech_defence_mode.proc/Activate, FALSE), 100) //10 seconds of speeeeed, then toggle off
+						addtimer(CALLBACK(mecha.overload_action, /datum/action/innate/mecha/mech_defense_mode.proc/Activate, FALSE), 100) //10 seconds of speeeeed, then toggle off
 
 					retreat_distance = 50
-					spawn(100)
-						retreat_distance = 0
+					addtimer(VARSET_CALLBACK(src, retreat_distance, 0), 10 SECONDS)
 
 
 
@@ -259,7 +259,7 @@
 //Yes they actually try and pull this shit
 //~simple animals~
 /mob/living/simple_animal/hostile/syndicate/mecha_pilot/CanAttack(atom/the_target)
-	if(istype(the_target, /obj/mecha))
+	if(ismecha(the_target))
 		var/obj/mecha/M = the_target
 		if(mecha)
 			if(M == mecha || !CanAttack(M.occupant))
@@ -283,13 +283,12 @@
 
 /mob/living/simple_animal/hostile/syndicate/mecha_pilot/Move(NewLoc,Dir=0,step_x=0,step_y=0)
 	if(mecha && loc == mecha)
-		mecha.relaymove(src, Dir)
-		return
-	..()
+		return mecha.relaymove(src, Dir)
+	return ..()
 
 
 /mob/living/simple_animal/hostile/syndicate/mecha_pilot/Goto(target, delay, minimum_distance)
 	if(mecha)
-		walk_to(mecha, target, minimum_distance, delay)
+		walk_to(mecha, target, minimum_distance, mecha.step_in)
 	else
 		..()

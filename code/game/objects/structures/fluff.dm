@@ -11,15 +11,14 @@
 	var/deconstructible = TRUE
 
 /obj/structure/fluff/attackby(obj/item/I, mob/living/user, params)
-	if(istype(I, /obj/item/weapon/wrench) && deconstructible)
+	if(I.tool_behaviour == TOOL_WRENCH && deconstructible)
 		user.visible_message("<span class='notice'>[user] starts disassembling [src]...</span>", "<span class='notice'>You start disassembling [src]...</span>")
-		playsound(user, I.usesound, 50, 1)
-		if(!do_after(user, 50, target = src))
-			return 0
-		user.visible_message("<span class='notice'>[user] disassembles [src]!</span>", "<span class='notice'>You break down [src] into scrap metal.</span>")
-		playsound(user, 'sound/items/Deconstruct.ogg', 50, 1)
-		new/obj/item/stack/sheet/metal(get_turf(src))
-		qdel(src)
+		I.play_tool_sound(src)
+		if(I.use_tool(src, user, 50))
+			user.visible_message("<span class='notice'>[user] disassembles [src]!</span>", "<span class='notice'>You break down [src] into scrap metal.</span>")
+			playsound(user, 'sound/items/deconstruct.ogg', 50, TRUE)
+			new/obj/item/stack/sheet/metal(drop_location())
+			qdel(src)
 		return
 	..()
 
@@ -33,7 +32,7 @@
 /obj/structure/fluff/empty_sleeper //Empty sleepers are created by a good few ghost roles in lavaland.
 	name = "empty sleeper"
 	desc = "An open sleeper. It looks as though it would be awaiting another patient, were it not broken."
-	icon = 'icons/obj/Cryogenic2.dmi'
+	icon = 'icons/obj/machines/sleeper.dmi'
 	icon_state = "sleeper-open"
 
 /obj/structure/fluff/empty_sleeper/nanotrasen
@@ -65,6 +64,7 @@
 	pixel_x = -16
 	density = TRUE
 	deconstructible = FALSE
+	layer = EDGED_TURF_LAYER
 
 /obj/structure/fluff/drake_statue/falling //A variety of statue in disrepair; parts are broken off and a gemstone is missing
 	desc = "A towering basalt sculpture of a drake. Cracks run down its surface and parts of it have fallen off."
@@ -86,7 +86,7 @@
 /obj/structure/fluff/bus/passable
 	name = "bus"
 	icon_state = "frontwalltop"
-	density = 0
+	density = FALSE
 	layer = ABOVE_ALL_MOB_LAYER //except for the stairs tile, which should be set to OBJ_LAYER aka 3.
 
 
@@ -104,7 +104,8 @@
 	icon_state = "driverseat"
 
 /obj/structure/fluff/bus/passable/seat/driver/attack_hand(mob/user)
-	playsound(src.loc, 'sound/items/carhorn.ogg', 50, 1)
+	playsound(src, 'sound/items/carhorn.ogg', 50, TRUE)
+	. = ..()
 
 /obj/structure/fluff/paper
 	name = "dense lining of papers"
@@ -125,8 +126,8 @@
 /obj/structure/fluff/divine
 	name = "Miracle"
 	icon = 'icons/obj/hand_of_god_structures.dmi'
-	anchored = 1
-	density = 1
+	anchored = TRUE
+	density = TRUE
 
 /obj/structure/fluff/divine/nexus
 	name = "nexus"
@@ -142,7 +143,7 @@
 	name = "conversion altar"
 	desc = "An altar dedicated to a deity."
 	icon_state = "convertaltar"
-	density = 0
+	density = FALSE
 	can_buckle = 1
 
 /obj/structure/fluff/divine/powerpylon
@@ -160,3 +161,116 @@
 	name = "shrine"
 	desc = "A shrine dedicated to a deity."
 	icon_state = "shrine"
+
+/obj/structure/fluff/fokoff_sign
+	name = "crude sign"
+	desc = "A crudely-made sign with the words 'fok of' written in some sort of red paint."
+	icon = 'icons/obj/fluff.dmi'
+	icon_state = "fokof"
+
+/obj/structure/fluff/big_chain
+	name = "giant chain"
+	desc = "A towering link of chains leading up to the ceiling."
+	icon = 'icons/effects/32x96.dmi'
+	icon_state = "chain"
+	layer = ABOVE_OBJ_LAYER
+	anchored = TRUE
+	density = TRUE
+	deconstructible = FALSE
+
+/obj/structure/fluff/railing
+	name = "railing"
+	desc = "Basic railing meant to protect idiots like you from falling."
+	icon = 'icons/obj/fluff.dmi'
+	icon_state = "railing"
+	density = TRUE
+	anchored = TRUE
+	deconstructible = FALSE
+
+/obj/structure/fluff/railing/corner
+	icon_state = "railing_corner"
+	density = FALSE
+
+/obj/structure/fluff/beach_towel
+	name = "beach towel"
+	desc = "A towel decorated in various beach-themed designs."
+	icon = 'icons/obj/fluff.dmi'
+	icon_state = "railing"
+	density = FALSE
+	anchored = TRUE
+	deconstructible = FALSE
+
+/obj/structure/fluff/beach_umbrella
+	name = "beach umbrella"
+	desc = "A fancy umbrella designed to keep the sun off beach-goers."
+	icon = 'icons/obj/fluff.dmi'
+	icon_state = "brella"
+	density = FALSE
+	anchored = TRUE
+	deconstructible = FALSE
+
+/obj/structure/fluff/beach_umbrella/security
+	icon_state = "hos_brella"
+
+/obj/structure/fluff/beach_umbrella/science
+	icon_state = "rd_brella"
+
+/obj/structure/fluff/beach_umbrella/engine
+	icon_state = "ce_brella"
+
+/obj/structure/fluff/beach_umbrella/cap
+	icon_state = "cap_brella"
+
+/obj/structure/fluff/beach_umbrella/syndi
+	icon_state = "syndi_brella"
+
+/obj/structure/fluff/clockwork
+	name = "Clockwork Fluff"
+	icon = 'icons/obj/clockwork_objects.dmi'
+	deconstructible = FALSE
+
+/obj/structure/fluff/clockwork/alloy_shards
+	name = "replicant alloy shards"
+	desc = "Broken shards of some oddly malleable metal. They occasionally move and seem to glow."
+	icon_state = "alloy_shards"
+
+/obj/structure/fluff/clockwork/alloy_shards/small
+	icon_state = "shard_small1"
+
+/obj/structure/fluff/clockwork/alloy_shards/medium
+	icon_state = "shard_medium1"
+
+/obj/structure/fluff/clockwork/alloy_shards/medium_gearbit
+	icon_state = "gear_bit1"
+
+/obj/structure/fluff/clockwork/alloy_shards/large
+	icon_state = "shard_large1"
+
+/obj/structure/fluff/clockwork/blind_eye
+	name = "blind eye"
+	desc = "A heavy brass eye, its red iris fallen dark."
+	icon_state = "blind_eye"
+
+/obj/structure/fluff/clockwork/fallen_armor
+	name = "fallen armor"
+	desc = "Lifeless chunks of armor. They're designed in a strange way and won't fit on you."
+	icon_state = "fallen_armor"
+
+/obj/structure/fluff/clockwork/clockgolem_remains
+	name = "clockwork golem scrap"
+	desc = "A pile of scrap metal. It seems damaged beyond repair."
+	icon_state = "clockgolem_dead"
+
+/obj/structure/fluff/hedge
+	name = "hedge"
+	desc = "A large bushy hedge."
+	icon = 'icons/obj/smooth_structures/hedge.dmi'
+	icon_state = "hedge"
+	smooth = SMOOTH_TRUE
+	canSmoothWith = list(/obj/structure/fluff/hedge, /obj/structure/fluff/hedge/opaque)
+	density = TRUE
+	anchored = TRUE
+	deconstructible = FALSE
+
+/obj/structure/fluff/hedge/opaque //useful for mazes and such
+	opacity = 1

@@ -1,9 +1,9 @@
 /area/holodeck
 	name = "Holodeck"
 	icon_state = "Holodeck"
-	luminosity = 1
-	lighting_use_dynamic = 0
-	flags = 0
+	dynamic_lighting = DYNAMIC_LIGHTING_DISABLED
+	flags_1 = 0
+	hidden = TRUE
 
 	var/obj/machinery/computer/holodeck/linked
 	var/restricted = 0 // if true, program goes on emag list
@@ -14,35 +14,35 @@
 */
 
 /area/holodeck/powered(var/chan)
-	if(!master.requires_power)
+	if(!requires_power)
 		return 1
-	if(master.always_unpowered)
+	if(always_unpowered)
 		return 0
 	if(!linked)
 		return 0
 	var/area/A = get_area(linked)
-	ASSERT(!istype(A,/area/holodeck))
+	ASSERT(!istype(A, /area/holodeck))
 	return A.powered(chan)
 
 /area/holodeck/usage(var/chan)
 	if(!linked)
 		return 0
 	var/area/A = get_area(linked)
-	ASSERT(!istype(A,/area/holodeck))
+	ASSERT(!istype(A, /area/holodeck))
 	return A.usage(chan)
 
 /area/holodeck/addStaticPower(value, powerchannel)
 	if(!linked)
 		return
 	var/area/A = get_area(linked)
-	ASSERT(!istype(A,/area/holodeck))
+	ASSERT(!istype(A, /area/holodeck))
 	return A.addStaticPower(value,powerchannel)
 
-/area/holodeck/use_power(var/amount, var/chan)
+/area/holodeck/use_power(amount, chan)
 	if(!linked)
 		return 0
 	var/area/A = get_area(linked)
-	ASSERT(!istype(A,/area/holodeck))
+	ASSERT(!istype(A, /area/holodeck))
 	return A.use_power(amount,chan)
 
 
@@ -75,17 +75,14 @@
 /area/holodeck/rec_center/lounge
 	name = "Holodeck - Lounge"
 
-/area/holodeck/rec_center/medical
-	name = "Holodeck - Emergency Medical"
-
 /area/holodeck/rec_center/pet_lounge
 	name = "Holodeck - Pet Park"
 
 /area/holodeck/rec_center/firingrange
 	name = "Holodeck - Firing Range"
 
-/area/holodeck/rec_center/rollercoaster
-	name = "Holodeck - Roller Coaster"
+/area/holodeck/rec_center/school
+	name = "Holodeck - Anime School"
 
 /area/holodeck/rec_center/chapelcourt
 	name = "Holodeck - Chapel Courtroom"
@@ -96,14 +93,24 @@
 /area/holodeck/rec_center/kobayashi
 	name = "Holodeck - Kobayashi Maru"
 
+/area/holodeck/rec_center/winterwonderland
+	name = "Holodeck - Winter Wonderland"
+
+/area/holodeck/rec_center/photobooth
+	name = "Holodeck - Photobooth"
+
 // Bad programs
+
+/area/holodeck/rec_center/medical
+	name = "Holodeck - Emergency Medical"
+	restricted = 1
+
+/area/holodeck/rec_center/thunderdome1218
+	name = "Holodeck - 1218 AD"
+	restricted = 1
 
 /area/holodeck/rec_center/burn
 	name = "Holodeck - Atmospheric Burn Test"
-	restricted = 1
-
-/area/holodeck/rec_center/winterwonderland
-	name = "Holodeck - Winter Wonderland"
 	restricted = 1
 
 /area/holodeck/rec_center/wildlife
@@ -121,8 +128,3 @@
 /area/holodeck/rec_center/refuel
 	name = "Holodeck - Refueling Station"
 	restricted = 1
-
-/area/holodeck/rec_center/thunderdome1218
-	name = "Holodeck - 1218 AD"
-	restricted = 1
-

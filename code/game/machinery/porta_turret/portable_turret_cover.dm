@@ -7,10 +7,8 @@
 	name = "turret"
 	icon = 'icons/obj/turrets.dmi'
 	icon_state = "turretCover"
-	anchored = 1
 	layer = HIGH_OBJ_LAYER
-	density = 0
-	obj_integrity = 80
+	density = FALSE
 	max_integrity = 80
 	var/obj/machinery/porta_turret/parent_turret = null
 
@@ -29,7 +27,6 @@
 	. = ..()
 	if(.)
 		return
-
 	return parent_turret.attack_ai(user)
 
 
@@ -37,23 +34,22 @@
 	. = ..()
 	if(.)
 		return
-
 	return parent_turret.attack_hand(user)
 
 
 /obj/machinery/porta_turret_cover/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/weapon/wrench) && !parent_turret.on)
+	if(I.tool_behaviour == TOOL_WRENCH && !parent_turret.on)
 		if(parent_turret.raised)
 			return
 
 		if(!parent_turret.anchored)
-			parent_turret.anchored = 1
-			user << "<span class='notice'>You secure the exterior bolts on the turret.</span>"
+			parent_turret.setAnchored(TRUE)
+			to_chat(user, "<span class='notice'>You secure the exterior bolts on the turret.</span>")
 			parent_turret.invisibility = 0
 			parent_turret.update_icon()
 		else
-			parent_turret.anchored = 0
-			user << "<span class='notice'>You unsecure the exterior bolts on the turret.</span>"
+			parent_turret.setAnchored(FALSE)
+			to_chat(user, "<span class='notice'>You unsecure the exterior bolts on the turret.</span>")
 			parent_turret.invisibility = INVISIBILITY_MAXIMUM
 			parent_turret.update_icon()
 			qdel(src)
@@ -61,14 +57,16 @@
 	else if(I.GetID())
 		if(parent_turret.allowed(user))
 			parent_turret.locked = !parent_turret.locked
-			user << "<span class='notice'>Controls are now [parent_turret.locked ? "locked" : "unlocked"].</span>"
+			to_chat(user, "<span class='notice'>Controls are now [parent_turret.locked ? "locked" : "unlocked"].</span>")
 			updateUsrDialog()
 		else
-			user << "<span class='notice'>Access denied.</span>"
-	else if(istype(I,/obj/item/device/multitool) && !parent_turret.locked)
-		var/obj/item/device/multitool/M = I
+			to_chat(user, "<span class='notice'>Access denied.</span>")
+	else if(I.tool_behaviour == TOOL_MULTITOOL && !parent_turret.locked)
+		if(!multitool_check_buffer(user, I))
+			return
+		var/obj/item/multitool/M = I
 		M.buffer = parent_turret
-		user << "<span class='notice'>You add [parent_turret] to multitool buffer.</span>"
+		to_chat(user, "<span class='notice'>You add [parent_turret] to multitool buffer.</span>")
 	else
 		return ..()
 
@@ -81,17 +79,16 @@
 /obj/machinery/porta_turret_cover/attack_animal(mob/living/simple_animal/user)
 	parent_turret.attack_animal(user)
 
-/obj/machinery/porta_turret_cover/attack_hulk(mob/living/carbon/human/user, does_attack_animation = 0)
+/obj/machinery/porta_turret_cover/attack_hulk(mob/living/carbon/human/user)
 	return parent_turret.attack_hulk(user)
 
 /obj/machinery/porta_turret_cover/can_be_overridden()
 	. = 0
 
 /obj/machinery/porta_turret_cover/emag_act(mob/user)
-	if(!parent_turret.emagged)
-		user << "<span class='notice'>You short out [parent_turret]'s threat assessment circuits.</span>"
-		visible_message("[parent_turret] hums oddly...")
-		parent_turret.emagged = 1
-		parent_turret.on = 0
-		spawn(40)
-			parent_turret.on = 1
+	if(!(parent_turret.obj_flags & EMAGGED))
+		to_chat(user, "<span class='notice'>You short out [parent_turret]'s threat assessment circuits.</span>")
+		visible_message("<span class='hear'>[parent_turret] hums oddly...</span>")
+		parent_turret.obj_flags |= EMAGGED
+		parent_turret.on = FALSE
+		addtimer(VARSET_CALLBACK(parent_turret, on, TRUE), 4 SECONDS)

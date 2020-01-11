@@ -1,73 +1,141 @@
 /*
-	These defines are specific to the atom/flags bitmask
+	These defines are specific to the atom/flags_1 bitmask
 */
-#define ALL ~0 //For convenience.
+#define ALL (~0) //For convenience.
 #define NONE 0
 
+//for convenience
+#define ENABLE_BITFIELD(variable, flag) (variable |= (flag))
+#define DISABLE_BITFIELD(variable, flag) (variable &= ~(flag))
+#define CHECK_BITFIELD(variable, flag) (variable & (flag))
+#define TOGGLE_BITFIELD(variable, flag) (variable ^= (flag))
+
+
+//check if all bitflags specified are present
+#define CHECK_MULTIPLE_BITFIELDS(flagvar, flags) (((flagvar) & (flags)) == (flags))
+
+GLOBAL_LIST_INIT(bitflags, list(1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768))
+
+// for /datum/var/datum_flags
+#define DF_USE_TAG		(1<<0)
+#define DF_VAR_EDITED	(1<<1)
+#define DF_ISPROCESSING (1<<2)
+
 //FLAGS BITMASK
-#define STOPSPRESSUREDMAGE 1	//This flag is used on the flags variable for SUIT and HEAD items which stop pressure damage. Note that the flag 1 was previous used as ONBACK, so it is possible for some code to use (flags & 1) when checking if something can be put on your back. Replace this code with (inv_flags & SLOT_BACK) if you see it anywhere
-//To successfully stop you taking all pressure damage you must have both a suit and head item with this flag.
 
-#define NODROP			2		// This flag makes it so that an item literally cannot be removed at all, or at least that's how it should be. Only deleted.
-#define NOBLUDGEON		4		// when an item has this it produces no "X has been hit by Y with Z" message in the default attackby()
-#define MASKINTERNALS	8		// mask allows internals
-#define HEAR 			16		// This flag is what recursive_hear_check() uses to determine wether to add an item to the hearer list or not.
-#define HANDSLOW        32		// If an item has this flag, it will slow you to carry it
-#define CONDUCT			64		// conducts electricity (metal etc.)
-#define ABSTRACT    	128		// for all things that are technically items but used for various different stuff, made it 128 because it could conflict with other flags other way
-#define NODECONSTRUCT  	128		// For machines and structures that should not break into parts, eg, holodeck stuff
-#define FPRINT			256		// takes a fingerprint
-#define ON_BORDER		512		// item has priority to check when entering or leaving
+/// This flag is what recursive_hear_check() uses to determine wether to add an item to the hearer list or not.
+#define HEAR_1						(1<<3)
+/// Projectiels will check ricochet on things impacted that have this.
+#define CHECK_RICOCHET_1			(1<<4)
+/// conducts electricity (metal etc.)
+#define CONDUCT_1					(1<<5)
+/// For machines and structures that should not break into parts, eg, holodeck stuff
+#define NODECONSTRUCT_1				(1<<7)
+/// atom queued to SSoverlay
+#define OVERLAY_QUEUED_1			(1<<8)
+/// item has priority to check when entering or leaving
+#define ON_BORDER_1					(1<<9)
+/// Prevent clicking things below it on the same turf eg. doors/ fulltile windows
+#define PREVENT_CLICK_UNDER_1		(1<<11)
+#define HOLOGRAM_1					(1<<12)
+/// Prevents mobs from getting chainshocked by teslas and the supermatter
+#define SHOCKED_1 					(1<<13)
+///Whether /atom/Initialize() has already run for the object
+#define INITIALIZED_1				(1<<14)
+/// was this spawned by an admin? used for stat tracking stuff.
+#define ADMIN_SPAWNED_1			    (1<<15)
+/// should not get harmed if this gets caught by an explosion?
+#define PREVENT_CONTENTS_EXPLOSION_1 (1<<16)
 
-#define EARBANGPROTECT		1024
-
-#define NOSLIP		1024 		//prevents from slipping on wet floors, in space etc (NOTE: flag shared with THICKMATERIAL for external suits and helmet)
-
-#define HEADBANGPROTECT		4096
-
-// BLOCK_GAS_SMOKE_EFFECT only used in masks at the moment.
-#define BLOCK_GAS_SMOKE_EFFECT 8192	// blocks the effect that chemical clouds would have on a mob --glasses, mask and helmets ONLY! (NOTE: flag shared with THICKMATERIAL)
-#define THICKMATERIAL 8192		//prevents syringes, parapens and hypos if the external suit or helmet (if targeting head) has this flag. Example: space suits, biosuit, bombsuits, thick suits that cover your body. (NOTE: flag shared with BLOCK_GAS_SMOKE_EFFECT)
-#define DROPDEL			16384 // When dropped, it calls qdel on itself
-#define HOLOGRAM		32768	// HOlodeck shit should not be used in any fucking things
 
 //turf-only flags
-#define NOJAUNT		1
-#define UNUSED_TRANSIT_TURF 2
-#define CAN_BE_DIRTY 4 //If a turf can be made dirty at roundstart. This is also used in areas.
-#define NO_DEATHRATTLE 16 // Do not notify deadchat about any deaths that occur on this turf.
+#define NOJAUNT_1					(1<<0)
+#define UNUSED_RESERVATION_TURF_1	(1<<1)
+/// If a turf can be made dirty at roundstart. This is also used in areas.
+#define CAN_BE_DIRTY_1				(1<<2)
+/// If blood cultists can draw runes or build structures on this turf
+#define CULT_PERMITTED_1			(1<<3)
+/// Blocks lava rivers being generated on the turf
+#define NO_LAVA_GEN_1				(1<<6)
+/// Blocks ruins spawning on the turf
+#define NO_RUINS_1					(1<<10)
 
 /*
 	These defines are used specifically with the atom/pass_flags bitmask
 	the atom/checkpass() proc uses them (tables will call movable atom checkpass(PASSTABLE) for example)
 */
 //flags for pass_flags
-#define PASSTABLE		1
-#define PASSGLASS		2
-#define PASSGRILLE		4
-#define PASSBLOB		8
-#define PASSMOB			16
-#define LETPASSTHROW	32
-
+#define PASSTABLE		(1<<0)
+#define PASSGLASS		(1<<1)
+#define PASSGRILLE		(1<<2)
+#define PASSBLOB		(1<<3)
+#define PASSMOB			(1<<4)
+#define PASSCLOSEDTURF	(1<<5)
+#define LETPASSTHROW	(1<<6)
 
 //Movement Types
-#define IMMOBILE 0
-#define GROUND 1
-#define FLYING 2
+#define GROUND			(1<<0)
+#define FLYING			(1<<1)
+#define VENTCRAWLING	(1<<2)
+#define FLOATING		(1<<3)
+/// When moving, will Bump()/Cross()/Uncross() everything, but won't be stopped.
+#define UNSTOPPABLE		(1<<4)
 
+//Fire and Acid stuff, for resistance_flags
+#define LAVA_PROOF		(1<<0)
+/// 100% immune to fire damage (but not necessarily to lava or heat)
+#define FIRE_PROOF		(1<<1)
+#define FLAMMABLE		(1<<2)
+#define ON_FIRE			(1<<3)
+/// acid can't even appear on it, let alone melt it.
+#define UNACIDABLE		(1<<4)
+/// acid stuck on it doesn't melt it.
+#define ACID_PROOF		(1<<5)
+/// doesn't take damage
+#define INDESTRUCTIBLE	(1<<6)
+/// can't be frozen
+#define FREEZE_PROOF	(1<<7)
 
-/*
-	These defines are used specifically with the atom/movable/languages bitmask.
-	They are used in atom/movable/Hear() and atom/movable/say() to determine whether hearers can understand a message.
-*/
-#define HUMAN 1
-#define MONKEY 2
-#define ALIEN 4
-#define ROBOT 8
-#define SLIME 16
-#define DRONE 32
-#define SWARMER 64
-#define RATVAR 128
+//tesla_zap
+#define ZAP_MACHINE_EXPLOSIVE		(1<<0)
+#define ZAP_ALLOW_DUPLICATES		(1<<1)
+#define ZAP_OBJ_DAMAGE			(1<<2)
+#define ZAP_MOB_DAMAGE			(1<<3)
+#define ZAP_MOB_STUN			(1<<4)
+#define ZAP_IS_TESLA			(1<<5)
 
-// Flags for reagents
-#define REAGENT_NOREACT 1
+#define ZAP_DEFAULT_FLAGS ALL
+#define ZAP_FUSION_FLAGS ZAP_OBJ_DAMAGE | ZAP_MOB_DAMAGE | ZAP_MOB_STUN | ZAP_IS_TESLA
+#define ZAP_SUPERMATTER_FLAGS NONE
+
+//EMP protection
+#define EMP_PROTECT_SELF (1<<0)
+#define EMP_PROTECT_CONTENTS (1<<1)
+#define EMP_PROTECT_WIRES (1<<2)
+
+//Mob mobility var flags
+/// can move
+#define MOBILITY_MOVE			(1<<0)
+/// can, and is, standing up
+#define MOBILITY_STAND			(1<<1)
+/// can pickup items
+#define MOBILITY_PICKUP			(1<<2)
+/// can hold and use items
+#define MOBILITY_USE			(1<<3)
+/// can use interfaces like machinery
+#define MOBILITY_UI				(1<<4)
+/// can use storage item
+#define MOBILITY_STORAGE		(1<<5)
+/// can pull things
+#define MOBILITY_PULL			(1<<6)
+
+#define MOBILITY_FLAGS_DEFAULT (MOBILITY_MOVE | MOBILITY_STAND | MOBILITY_PICKUP | MOBILITY_USE | MOBILITY_UI | MOBILITY_STORAGE | MOBILITY_PULL)
+#define MOBILITY_FLAGS_INTERACTION (MOBILITY_USE | MOBILITY_PICKUP | MOBILITY_UI | MOBILITY_STORAGE)
+
+// radiation
+#define RAD_PROTECT_CONTENTS (1<<0)
+#define RAD_NO_CONTAMINATE (1<<1)
+
+//alternate appearance flags
+#define AA_TARGET_SEE_APPEARANCE (1<<0)
+#define AA_MATCH_TARGET_OVERLAYS (1<<1)

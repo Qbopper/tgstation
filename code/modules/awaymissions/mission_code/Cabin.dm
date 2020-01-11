@@ -1,22 +1,56 @@
 
+/*Cabin areas*/
+/area/awaymission/cabin
+	name = "Cabin"
+	icon_state = "away2"
+	requires_power = TRUE
+	dynamic_lighting = DYNAMIC_LIGHTING_ENABLED
+
+/area/awaymission/cabin/snowforest
+	name = "Snow Forest"
+	icon_state = "away"
+	dynamic_lighting = DYNAMIC_LIGHTING_DISABLED
+
+/area/awaymission/cabin/snowforest/sovietsurface
+	name = "Snow Forest"
+	icon_state = "awaycontent29"
+	requires_power = FALSE
+
+/area/awaymission/cabin/lumbermill
+	name = "Lumbermill"
+	icon_state = "away3"
+	requires_power = FALSE
+	dynamic_lighting = DYNAMIC_LIGHTING_DISABLED
+
+/area/awaymission/cabin/caves/sovietcave
+	name = "Soviet Bunker"
+	icon_state = "awaycontent4"
+
+/area/awaymission/cabin/caves
+	name = "North Snowdin Caves"
+	icon_state = "awaycontent15"
+	dynamic_lighting = DYNAMIC_LIGHTING_FORCED
+
+/area/awaymission/cabin/caves/mountain
+	name = "North Snowdin Mountains"
+	icon_state = "awaycontent24"
+
 /obj/structure/firepit
 	name = "firepit"
-	desc = "warm and toasty"
+	desc = "Warm and toasty."
 	icon = 'icons/obj/fireplace.dmi'
 	icon_state = "firepit-active"
-	density = 0
+	density = FALSE
 	var/active = 1
 
 /obj/structure/firepit/Initialize()
 	..()
 	toggleFirepit()
 
-/obj/structure/firepit/attack_hand(mob/living/user)
+/obj/structure/firepit/interact(mob/living/user)
 	if(active)
-		active = 0
+		active = FALSE
 		toggleFirepit()
-	else
-		..()
 
 /obj/structure/firepit/attackby(obj/item/W,mob/living/user,params)
 	if(!active)
@@ -31,11 +65,12 @@
 		W.fire_act()
 
 /obj/structure/firepit/proc/toggleFirepit()
+	active = !active
 	if(active)
-		SetLuminosity(8)
+		set_light(8)
 		icon_state = "firepit-active"
 	else
-		SetLuminosity(0)
+		set_light(0)
 		icon_state = "firepit"
 
 /obj/structure/firepit/extinguish()
@@ -55,10 +90,10 @@
 /obj/machinery/recycler/lumbermill
 	name = "lumbermill saw"
 	desc = "Faster then the cartoons!"
-	emagged = 2 //Always gibs people
+	obj_flags = CAN_BE_HIT | EMAGGED
 	item_recycle_sound = 'sound/weapons/chainsawhit.ogg'
 
-/obj/machinery/recycler/lumbermill/recycle_item(obj/item/weapon/grown/log/L)
+/obj/machinery/recycler/lumbermill/recycle_item(obj/item/grown/log/L)
 	if(!istype(L))
 		return
 	else
@@ -76,7 +111,7 @@
 	egg_type = null
 	speak = list()
 
-/*Cabin's forest*/
+/*Cabin's forest. Removed in the new cabin map since it was buggy and I prefer manual placement.*/
 /datum/mapGenerator/snowy
 	modules = list(/datum/mapGeneratorModule/bottomlayer/snow, \
 	/datum/mapGeneratorModule/snow/pineTrees, \
@@ -86,7 +121,7 @@
 	/datum/mapGeneratorModule/snow/bunnies)
 
 /datum/mapGeneratorModule/snow/checkPlaceAtom(turf/T)
-	if(istype(T,/turf/open/floor/plating/asteroid/snow))
+	if(istype(T, /turf/open/floor/plating/asteroid/snow))
 		return ..(T)
 	return 0
 
@@ -117,3 +152,7 @@
 
 /obj/effect/landmark/mapGenerator/snowy
 	mapGeneratorType = /datum/mapGenerator/snowy
+	endTurfX = 159
+	endTurfY = 157
+	startTurfX = 37
+	startTurfY = 35

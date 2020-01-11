@@ -11,6 +11,9 @@
 /obj/screen/movable
 	var/snap2grid = FALSE
 	var/moved = FALSE
+	var/locked = FALSE
+	var/x_off = -16
+	var/y_off = -16
 
 //Snap Screen Object
 //Tied to the grid, snaps to the nearest turf
@@ -20,6 +23,8 @@
 
 
 /obj/screen/movable/MouseDrop(over_object, src_location, over_location, src_control, over_control, params)
+	if(locked) //no! I am locked! begone!
+		return
 	var/list/PM = params2list(params)
 
 	//No screen-loc information? abort.
@@ -39,8 +44,8 @@
 		screen_loc = "[screen_loc_X[1]],[screen_loc_Y[1]]"
 
 	else //Normalise Pixel Values (So the object drops at the center of the mouse, not 16 pixels off)
-		var/pix_X = text2num(screen_loc_X[2]) - 16
-		var/pix_Y = text2num(screen_loc_Y[2]) - 16
+		var/pix_X = text2num(screen_loc_X[2]) + x_off
+		var/pix_Y = text2num(screen_loc_Y[2]) + y_off
 		screen_loc = "[screen_loc_X[1]]:[pix_X],[screen_loc_Y[1]]:[pix_Y]"
 
 	moved = screen_loc
@@ -57,7 +62,7 @@
 	M.maptext = "Movable"
 	M.maptext_width = 64
 
-	var/screen_l = input(usr,"Where on the screen? (Formatted as 'X,Y' e.g: '1,1' for bottom left)","Spawn Movable UI Object") as text
+	var/screen_l = input(usr,"Where on the screen? (Formatted as 'X,Y' e.g: '1,1' for bottom left)","Spawn Movable UI Object") as text|null
 	if(!screen_l)
 		return
 
@@ -76,7 +81,7 @@
 	S.maptext = "Snap"
 	S.maptext_width = 64
 
-	var/screen_l = input(usr,"Where on the screen? (Formatted as 'X,Y' e.g: '1,1' for bottom left)","Spawn Snap UI Object") as text
+	var/screen_l = input(usr,"Where on the screen? (Formatted as 'X,Y' e.g: '1,1' for bottom left)","Spawn Snap UI Object") as text|null
 	if(!screen_l)
 		return
 

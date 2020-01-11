@@ -1,26 +1,21 @@
-#define MAX_THROWING_DIST 512 // 2 z-levels on default width
+#define MAX_THROWING_DIST 1280 // 5 z-levels on default width
 #define MAX_TICKS_TO_MAKE_UP 3 //how many missed ticks will we attempt to make up for this run.
-var/datum/subsystem/throwing/SSthrowing
 
-/datum/subsystem/throwing
+SUBSYSTEM_DEF(throwing)
 	name = "Throwing"
-	priority = 25
+	priority = FIRE_PRIORITY_THROWING
 	wait = 1
 	flags = SS_NO_INIT|SS_KEEP_TIMING|SS_TICKER
+	runlevels = RUNLEVEL_GAME | RUNLEVEL_POSTGAME
 
 	var/list/currentrun
-	var/list/processing
+	var/list/processing = list()
 
-/datum/subsystem/throwing/New()
-	NEW_SS_GLOBAL(SSthrowing)
-	processing = list()
-
-
-/datum/subsystem/throwing/stat_entry()
+/datum/controller/subsystem/throwing/stat_entry()
 	..("P:[processing.len]")
 
 
-/datum/subsystem/throwing/fire(resumed = 0)
+/datum/controller/subsystem/throwing/fire(resumed = 0)
 	if (!resumed)
 		src.currentrun = processing.Copy()
 
@@ -31,7 +26,7 @@ var/datum/subsystem/throwing/SSthrowing
 		var/atom/movable/AM = currentrun[currentrun.len]
 		var/datum/thrownthing/TT = currentrun[AM]
 		currentrun.len--
-		if (!AM || !TT)
+		if (QDELETED(AM) || QDELETED(TT))
 			processing -= AM
 			if (MC_TICK_CHECK)
 				return
@@ -48,6 +43,7 @@ var/datum/subsystem/throwing/SSthrowing
 	var/atom/movable/thrownthing
 	var/atom/target
 	var/turf/target_turf
+	var/target_zone
 	var/init_dir
 	var/maxrange
 	var/speed
@@ -59,27 +55,46 @@ var/datum/subsystem/throwing/SSthrowing
 	var/dist_y
 	var/dx
 	var/dy
+	var/force = MOVE_FORCE_DEFAULT
 	var/pure_diagonal
 	var/diagonal_error
 	var/datum/callback/callback
+	var/paused = FALSE
+	var/delayed_time = 0
+	var/last_move = 0
+
+/datum/thrownthing/Destroy()
+	SSthrowing.processing -= thrownthing
+	thrownthing.throwing = null
+	thrownthing = null
+	target = null
+	thrower = null
+	callback = null
+	return ..()
 
 /datum/thrownthing/proc/tick()
 	var/atom/movable/AM = thrownthing
 	if (!isturf(AM.loc) || !AM.throwing)
-		finialize()
+		finalize()
+		return
+
+	if(paused)
+		delayed_time += world.time - last_move
 		return
 
 	if (dist_travelled && hitcheck()) //to catch sneaky things moving on our tile while we slept
-		finialize()
+		finalize()
 		return
 
 	var/atom/step
 
+	last_move = world.time
+
 	//calculate how many tiles to move, making up for any missed ticks.
-	var/tilestomove = round(min(((((world.time+world.tick_lag) - start_time) * speed) - (dist_travelled ? dist_travelled : -1)), speed*MAX_TICKS_TO_MAKE_UP) * (world.tick_lag * SSthrowing.wait))
+	var/tilestomove = CEILING(min(((((world.time+world.tick_lag) - start_time + delayed_time) * speed) - (dist_travelled ? dist_travelled : -1)), speed*MAX_TICKS_TO_MAKE_UP) * (world.tick_lag * SSthrowing.wait), 1)
 	while (tilestomove-- > 0)
 		if ((dist_travelled >= maxrange || AM.loc == target_turf) && AM.has_gravity(AM.loc))
-			finialize()
+			finalize()
 			return
 
 		if (dist_travelled <= max(dist_x, dist_y)) //if we haven't reached the target yet we home in on it, otherwise we use the initial direction
@@ -93,47 +108,61 @@ var/datum/subsystem/throwing/SSthrowing
 			diagonal_error += (diagonal_error < 0) ? dist_x/2 : -dist_y
 
 		if (!step) // going off the edge of the map makes get_step return null, don't let things go off the edge
-			finialize()
+			finalize()
 			return
 
 		AM.Move(step, get_dir(AM, step))
 
 		if (!AM.throwing) // we hit something during our move
-			finialize(hit = TRUE)
+			finalize(hit = TRUE)
 			return
 
 		dist_travelled++
 
 		if (dist_travelled > MAX_THROWING_DIST)
-			finialize()
+			finalize()
 			return
 
-/datum/thrownthing/proc/finialize(hit = FALSE)
-	set waitfor = 0
-	SSthrowing.processing -= thrownthing
+/datum/thrownthing/proc/finalize(hit = FALSE, target=null)
+	set waitfor = FALSE
 	//done throwing, either because it hit something or it finished moving
-	thrownthing.throwing = 0
+	if(!thrownthing)
+		return
+	thrownthing.throwing = null
 	if (!hit)
 		for (var/thing in get_turf(thrownthing)) //looking for our target on the turf we land on.
 			var/atom/A = thing
 			if (A == target)
-				hit = 1
-				thrownthing.throw_impact(A)
+				hit = TRUE
+				thrownthing.throw_impact(A, src)
 				break
 		if (!hit)
-			thrownthing.throw_impact(get_turf(thrownthing))  // we haven't hit something yet and we still must, let's hit the ground.
+			thrownthing.throw_impact(get_turf(thrownthing), src)  // we haven't hit something yet and we still must, let's hit the ground.
 			thrownthing.newtonian_move(init_dir)
 	else
 		thrownthing.newtonian_move(init_dir)
+
+	if(target)
+		thrownthing.throw_impact(target, src)
+
 	if (callback)
 		callback.Invoke()
+	
+	if(!thrownthing.zfalling) // I don't think you can zfall while thrown but hey, just in case.
+		var/turf/T = get_turf(thrownthing)
+		if(T && thrownthing.has_gravity(T))
+			T.zFall(thrownthing)
+
+	qdel(src)
+
+/datum/thrownthing/proc/hit_atom(atom/A)
+	finalize(hit=TRUE, target=A)
 
 /datum/thrownthing/proc/hitcheck()
 	for (var/thing in get_turf(thrownthing))
 		var/atom/movable/AM = thing
-		if (AM == thrownthing)
+		if (AM == thrownthing || (AM == thrower && !ismob(thrownthing)))
 			continue
-		if (AM.density && !(AM.pass_flags & LETPASSTHROW) && !(AM.flags & ON_BORDER))
-			thrownthing.throwing = 0
-			thrownthing.throw_impact(AM)
-			return 1
+		if (AM.density && !(AM.pass_flags & LETPASSTHROW) && !(AM.flags_1 & ON_BORDER_1))
+			finalize(hit=TRUE, target=AM)
+			return TRUE

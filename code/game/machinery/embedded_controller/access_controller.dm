@@ -6,30 +6,33 @@
 
 /obj/machinery/doorButtons
 	power_channel = ENVIRON
-	anchored = 1
-	use_power = 1
+	use_power = IDLE_POWER_USE
 	idle_power_usage = 2
 	active_power_usage = 4
 	resistance_flags = INDESTRUCTIBLE | LAVA_PROOF | FIRE_PROOF | UNACIDABLE | ACID_PROOF
 	var/idSelf
 
 /obj/machinery/doorButtons/attackby(obj/O, mob/user)
-	attack_hand(user)
+	return attack_hand(user)
 
 /obj/machinery/doorButtons/proc/findObjsByTag()
 	return
 
 /obj/machinery/doorButtons/Initialize()
 	..()
+	return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/doorButtons/LateInitialize()
 	findObjsByTag()
 
 /obj/machinery/doorButtons/emag_act(mob/user)
-	if(!emagged)
-		emagged = 1
-		req_access = list()
-		req_one_access = list()
-		playsound(src.loc, "sparks", 100, 1)
-		user << "<span class='warning'>You short out the access controller.</span>"
+	if(obj_flags & EMAGGED)
+		return
+	obj_flags |= EMAGGED
+	req_access = list()
+	req_one_access = list()
+	playsound(src, "sparks", 100, TRUE)
+	to_chat(user, "<span class='warning'>You short out the access controller.</span>")
 
 /obj/machinery/doorButtons/proc/removeMe()
 
@@ -38,33 +41,32 @@
 	icon = 'icons/obj/airlock_machines.dmi'
 	icon_state = "access_button_standby"
 	name = "access button"
+	desc = "A button used for the explicit purpose of opening an airlock."
 	var/idDoor
 	var/obj/machinery/door/airlock/door
 	var/obj/machinery/doorButtons/airlock_controller/controller
 	var/busy
 
 /obj/machinery/doorButtons/access_button/findObjsByTag()
-	for(var/obj/machinery/doorButtons/airlock_controller/A in machines)
+	for(var/obj/machinery/doorButtons/airlock_controller/A in GLOB.machines)
 		if(A.idSelf == idSelf)
 			controller = A
 			break
-	for(var/obj/machinery/door/airlock/I in machines)
+	for(var/obj/machinery/door/airlock/I in GLOB.machines)
 		if(I.id_tag == idDoor)
 			door = I
 			break
 
-/obj/machinery/doorButtons/access_button/attack_hand(mob/user)
-	if(..())
-		return
+/obj/machinery/doorButtons/access_button/interact(mob/user)
 	if(busy)
 		return
 	if(!allowed(user))
-		user << "<span class='warning'>Access denied.</span>"
+		to_chat(user, "<span class='warning'>Access denied.</span>")
 		return
 	if(controller && !controller.busy && door)
 		if(controller.stat & NOPOWER)
 			return
-		busy = 1
+		busy = TRUE
 		update_icon()
 		if(door.density)
 			if(!controller.exteriorAirlock || !controller.interiorAirlock)
@@ -77,10 +79,10 @@
 		else
 			controller.onlyClose(door)
 		sleep(20)
-		busy = 0
+		busy = FALSE
 		update_icon()
 
-/obj/machinery/doorButtons/access_button/update_icon()
+/obj/machinery/doorButtons/access_button/update_icon_state()
 	if(stat & NOPOWER)
 		icon_state = "access_button_off"
 	else
@@ -88,10 +90,6 @@
 			icon_state = "access_button_cycle"
 		else
 			icon_state = "access_button_standby"
-
-/obj/machinery/doorButtons/access_button/power_change()
-	..()
-	update_icon()
 
 /obj/machinery/doorButtons/access_button/removeMe(obj/O)
 	if(O == door)
@@ -103,6 +101,7 @@
 	icon = 'icons/obj/airlock_machines.dmi'
 	icon_state = "access_control_standby"
 	name = "access console"
+	desc = "A small console that can cycle opening between two airlocks."
 	var/obj/machinery/door/airlock/interiorAirlock
 	var/obj/machinery/door/airlock/exteriorAirlock
 	var/idInterior
@@ -117,7 +116,7 @@
 		exteriorAirlock = null
 
 /obj/machinery/doorButtons/airlock_controller/Destroy()
-	for(var/obj/machinery/doorButtons/access_button/A in machines)
+	for(var/obj/machinery/doorButtons/access_button/A in GLOB.machines)
 		if(A.controller == src)
 			A.controller = null
 	return ..()
@@ -128,7 +127,7 @@
 	if(busy)
 		return
 	if(!allowed(usr))
-		usr << "<span class='warning'>Access denied.</span>"
+		to_chat(usr, "<span class='warning'>Access denied.</span>")
 		return
 	switch(href_list["command"])
 		if("close_exterior")
@@ -158,20 +157,19 @@
 /obj/machinery/doorButtons/airlock_controller/proc/closeDoor(obj/machinery/door/airlock/A)
 	if(A.density)
 		goIdle()
-		return 0
+		return FALSE
 	update_icon()
+	A.safe = FALSE //Door crushies, manual door after all. Set every time in case someone changed it, safe doors can end up waiting forever.
 	A.unbolt()
-	spawn()
-		if(A && A.close())
-			if(stat & NOPOWER || lostPower || !A || QDELETED(A))
-				goIdle(1)
-				return
-			A.bolt()
-			if(busy == CLOSING)
-				goIdle(1)
-		else
-			goIdle(1)
-	return 1
+	if(A.close())
+		if(stat & NOPOWER || lostPower || !A || QDELETED(A))
+			goIdle(TRUE)
+			return FALSE
+		A.bolt()
+		goIdle(TRUE)
+		return TRUE
+	goIdle(TRUE)
+	return FALSE
 
 /obj/machinery/doorButtons/airlock_controller/proc/cycleClose(obj/machinery/door/airlock/A)
 	if(!A || !exteriorAirlock || !interiorAirlock)
@@ -189,7 +187,7 @@
 
 /obj/machinery/doorButtons/airlock_controller/proc/cycleOpen(obj/machinery/door/airlock/A)
 	if(!A)
-		goIdle(1)
+		goIdle(TRUE)
 	if(A == exteriorAirlock)
 		if(interiorAirlock)
 			if(!interiorAirlock.density || !interiorAirlock.locked)
@@ -204,18 +202,20 @@
 
 /obj/machinery/doorButtons/airlock_controller/proc/openDoor(obj/machinery/door/airlock/A)
 	if(exteriorAirlock && interiorAirlock && (!exteriorAirlock.density || !interiorAirlock.density))
-		goIdle(1)
+		goIdle(TRUE)
 		return
 	A.unbolt()
-	spawn()
-		if(A && A.open())
-			if(stat | (NOPOWER) && !lostPower && A && !QDELETED(A))
-				A.bolt()
-		goIdle(1)
+	INVOKE_ASYNC(src, .proc/do_openDoor, A)
+
+/obj/machinery/doorButtons/airlock_controller/proc/do_openDoor(obj/machinery/door/airlock/A)
+	if(A && A.open())
+		if(stat | (NOPOWER) && !lostPower && A && !QDELETED(A))
+			A.bolt()
+	goIdle(TRUE)
 
 /obj/machinery/doorButtons/airlock_controller/proc/goIdle(update)
-	lostPower = 0
-	busy = 0
+	lostPower = FALSE
+	busy = FALSE
 	if(update)
 		update_icon()
 	updateUsrDialog()
@@ -229,22 +229,21 @@
 		cycleOpen(interiorAirlock)
 
 /obj/machinery/doorButtons/airlock_controller/power_change()
-	..()
+	. = ..()
 	if(stat & NOPOWER)
-		lostPower = 1
+		lostPower = TRUE
 	else
 		if(!busy)
-			lostPower = 0
-	update_icon()
+			lostPower = FALSE
 
 /obj/machinery/doorButtons/airlock_controller/findObjsByTag()
-	for(var/obj/machinery/door/airlock/A in machines)
+	for(var/obj/machinery/door/airlock/A in GLOB.machines)
 		if(A.id_tag == idInterior)
 			interiorAirlock = A
 		else if(A.id_tag == idExterior)
 			exteriorAirlock = A
 
-/obj/machinery/doorButtons/airlock_controller/update_icon()
+/obj/machinery/doorButtons/airlock_controller/update_icon_state()
 	if(stat & NOPOWER)
 		icon_state = "access_control_off"
 		return
@@ -253,9 +252,7 @@
 	else
 		icon_state = "access_control_standby"
 
-/obj/machinery/doorButtons/airlock_controller/attack_hand(mob/user)
-	if(..())
-		return
+/obj/machinery/doorButtons/airlock_controller/ui_interact(mob/user)
 	var/datum/browser/popup = new(user, "computer", name)
 	popup.set_title_image(user.browse_rsc_icon(src.icon, src.icon_state))
 	popup.set_content(returnText())
@@ -271,29 +268,29 @@
 		if(!exteriorAirlock || !interiorAirlock)
 			if(!exteriorAirlock)
 				if(interiorAirlock.density)
-					output = "<A href='?src=\ref[src];command=open_interior'>Open Interior Airlock</A><BR>"
+					output = "<A href='?src=[REF(src)];command=open_interior'>Open Interior Airlock</A><BR>"
 				else
-					output = "<A href='?src=\ref[src];command=close_interior'>Close Interior Airlock</A><BR>"
+					output = "<A href='?src=[REF(src)];command=close_interior'>Close Interior Airlock</A><BR>"
 			else
 				if(exteriorAirlock.density)
-					output = "<A href='?src=\ref[src];command=open_exterior'>Open Exterior Airlock</A><BR>"
+					output = "<A href='?src=[REF(src)];command=open_exterior'>Open Exterior Airlock</A><BR>"
 				else
-					output = "<A href='?src=\ref[src];command=close_exterior'>Close Exterior Airlock</A><BR>"
+					output = "<A href='?src=[REF(src)];command=close_exterior'>Close Exterior Airlock</A><BR>"
 		else
 			if(exteriorAirlock.density)
 				if(interiorAirlock.density)
-					output = {"<A href='?src=\ref[src];command=open_exterior'>Open Exterior Airlock</A><BR>
-					<A href='?src=\ref[src];command=open_interior'>Open Interior Airlock</A><BR>"}
+					output = {"<A href='?src=[REF(src)];command=open_exterior'>Open Exterior Airlock</A><BR>
+					<A href='?src=[REF(src)];command=open_interior'>Open Interior Airlock</A><BR>"}
 				else
-					output = {"<A href='?src=\ref[src];command=cycle_exterior'>Cycle to Exterior Airlock</A><BR>
-					<A href='?src=\ref[src];command=close_interior'>Close Interior Airlock</A><BR>"}
+					output = {"<A href='?src=[REF(src)];command=cycle_exterior'>Cycle to Exterior Airlock</A><BR>
+					<A href='?src=[REF(src)];command=close_interior'>Close Interior Airlock</A><BR>"}
 			else
 				if(interiorAirlock.density)
-					output = {"<A href='?src=\ref[src];command=close_exterior'>Close Exterior Airlock</A><BR>
-					<A href='?src=\ref[src];command=cycle_interior'>Cycle to Interior Airlock</A><BR>"}
+					output = {"<A href='?src=[REF(src)];command=close_exterior'>Close Exterior Airlock</A><BR>
+					<A href='?src=[REF(src)];command=cycle_interior'>Cycle to Interior Airlock</A><BR>"}
 				else
-					output = {"<A href='?src=\ref[src];command=close_exterior'>Close Exterior Airlock</A><BR>
-					<A href='?src=\ref[src];command=close_interior'>Close Interior Airlock</A><BR>"}
+					output = {"<A href='?src=[REF(src)];command=close_exterior'>Close Exterior Airlock</A><BR>
+					<A href='?src=[REF(src)];command=close_interior'>Close Interior Airlock</A><BR>"}
 
 
 	output = {"<B>Access Control Console</B><HR>

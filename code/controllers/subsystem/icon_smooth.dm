@@ -1,28 +1,35 @@
-var/datum/subsystem/icon_smooth/SSicon_smooth
-
-/datum/subsystem/icon_smooth
+SUBSYSTEM_DEF(icon_smooth)
 	name = "Icon Smoothing"
-	init_order = -5
+	init_order = INIT_ORDER_ICON_SMOOTHING
 	wait = 1
-	priority = 35
+	priority = FIRE_PRIOTITY_SMOOTHING
 	flags = SS_TICKER
 
+	///Blueprints assemble an image of what pipes/manifolds/wires look like on initialization, and thus should be taken after everything's been smoothed
+	var/list/blueprint_queue = list()
 	var/list/smooth_queue = list()
+	var/list/deferred = list()
 
-/datum/subsystem/icon_smooth/New()
-	NEW_SS_GLOBAL(SSicon_smooth)
-
-/datum/subsystem/icon_smooth/fire()
-	while(smooth_queue.len)
-		var/atom/A = smooth_queue[smooth_queue.len]
-		smooth_queue.len--
-		smooth_icon(A)
+/datum/controller/subsystem/icon_smooth/fire()
+	var/list/cached = smooth_queue
+	while(cached.len)
+		var/atom/A = cached[cached.len]
+		cached.len--
+		if (A.flags_1 & INITIALIZED_1)
+			smooth_icon(A)
+		else
+			deferred += A
 		if (MC_TICK_CHECK)
 			return
-	if (!smooth_queue.len)
-		can_fire = 0
 
-/datum/subsystem/icon_smooth/Initialize()
+	if (!cached.len)
+		if (deferred.len)
+			smooth_queue = deferred
+			deferred = cached
+		else
+			can_fire = 0
+
+/datum/controller/subsystem/icon_smooth/Initialize()
 	smooth_zlevel(1,TRUE)
 	smooth_zlevel(2,TRUE)
 	var/queue = smooth_queue
@@ -33,5 +40,14 @@ var/datum/subsystem/icon_smooth/SSicon_smooth
 			continue
 		smooth_icon(A)
 		CHECK_TICK
+	queue = blueprint_queue
+	blueprint_queue = list()
+	var/atom/movable/AM
+	var/turf/T
+	for(var/item in queue)
+		AM = item
+		T = AM.loc
+		if(T && AM)
+			T.add_blueprints(AM)
 
-	..()
+	return ..()

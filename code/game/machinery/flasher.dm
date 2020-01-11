@@ -5,85 +5,87 @@
 	desc = "A wall-mounted flashbulb device."
 	icon = 'icons/obj/stationobjs.dmi'
 	icon_state = "mflash1"
-	var/obj/item/device/assembly/flash/handheld/bulb = null
+	max_integrity = 250
+	integrity_failure = 0.4
+	light_color = LIGHT_COLOR_WHITE
+	light_power = FLASH_LIGHT_POWER
+	damage_deflection = 10
+	var/obj/item/assembly/flash/handheld/bulb
 	var/id = null
 	var/range = 2 //this is roughly the size of brig cell
 	var/last_flash = 0 //Don't want it getting spammed like regular flashes
-	var/strength = 5 //How weakened targets are when flashed.
+	var/strength = 100 //How knocked down targets are when flashed.
 	var/base_state = "mflash"
-	obj_integrity = 250
-	max_integrity = 250
-	integrity_failure = 100
-	anchored = 1
 
 /obj/machinery/flasher/portable //Portable version of the flasher. Only flashes when anchored
 	name = "portable flasher"
 	desc = "A portable flashing device. Wrench to activate and deactivate. Cannot detect slow movements."
 	icon_state = "pflash1-p"
-	strength = 4
-	anchored = 0
+	strength = 80
+	anchored = FALSE
 	base_state = "pflash"
-	density = 1
+	density = TRUE
 
-/obj/machinery/flasher/New(loc, ndir = 0, built = 0)
-	..() // ..() is EXTREMELY IMPORTANT, never forget to add it
+/obj/machinery/flasher/Initialize(mapload, ndir = 0, built = 0)
+	. = ..() // ..() is EXTREMELY IMPORTANT, never forget to add it
 	if(built)
 		setDir(ndir)
 		pixel_x = (dir & 3)? 0 : (dir == 4 ? -28 : 28)
 		pixel_y = (dir & 3)? (dir ==1 ? -28 : 28) : 0
 	else
-		bulb = new /obj/item/device/assembly/flash/handheld(src)
+		bulb = new(src)
+
+/obj/machinery/flasher/connect_to_shuttle(obj/docking_port/mobile/port, obj/docking_port/stationary/dock, idnum, override=FALSE)
+	id = "[idnum][id]"
 
 /obj/machinery/flasher/Destroy()
-	if(bulb)
-		qdel(bulb)
-		bulb = null
+	QDEL_NULL(bulb)
 	return ..()
 
-/obj/machinery/flasher/power_change()
-	if (powered() && anchored && bulb)
-		stat &= ~NOPOWER
-		if(bulb.crit_fail)
+/obj/machinery/flasher/powered()
+	if(!anchored || !bulb)
+		return FALSE
+	return ..()
+
+/obj/machinery/flasher/update_icon_state()
+	if (powered())
+		if(bulb.burnt_out)
 			icon_state = "[base_state]1-p"
 		else
 			icon_state = "[base_state]1"
 	else
-		stat |= NOPOWER
 		icon_state = "[base_state]1-p"
 
 //Don't want to render prison breaks impossible
-/obj/machinery/flasher/attackby(obj/item/weapon/W, mob/user, params)
+/obj/machinery/flasher/attackby(obj/item/W, mob/user, params)
 	add_fingerprint(user)
-	if (istype(W, /obj/item/weapon/wirecutters))
+	if (W.tool_behaviour == TOOL_WIRECUTTER)
 		if (bulb)
-			user.visible_message("[user] begins to disconnect [src]'s flashbulb.", "<span class='notice'>You begin to disconnect [src]'s flashbulb...</span>")
-			playsound(src.loc, W.usesound, 100, 1)
-			if(do_after(user, 30*W.toolspeed, target = src) && bulb)
-				user.visible_message("[user] has disconnected [src]'s flashbulb!", "<span class='notice'>You disconnect [src]'s flashbulb.</span>")
+			user.visible_message("<span class='notice'>[user] begins to disconnect [src]'s flashbulb.</span>", "<span class='notice'>You begin to disconnect [src]'s flashbulb...</span>")
+			if(W.use_tool(src, user, 30, volume=50) && bulb)
+				user.visible_message("<span class='notice'>[user] has disconnected [src]'s flashbulb!</span>", "<span class='notice'>You disconnect [src]'s flashbulb.</span>")
 				bulb.forceMove(loc)
 				bulb = null
 				power_change()
 
-	else if (istype(W, /obj/item/device/assembly/flash/handheld))
+	else if (istype(W, /obj/item/assembly/flash/handheld))
 		if (!bulb)
-			if(!user.drop_item())
+			if(!user.transferItemToLoc(W, src))
 				return
-			user.visible_message("[user] installs [W] into [src].", "<span class='notice'>You install [W] into [src].</span>")
-			W.forceMove(src)
+			user.visible_message("<span class='notice'>[user] installs [W] into [src].</span>", "<span class='notice'>You install [W] into [src].</span>")
 			bulb = W
 			power_change()
 		else
-			user << "<span class='warning'>A flashbulb is already installed in [src]!</span>"
+			to_chat(user, "<span class='warning'>A flashbulb is already installed in [src]!</span>")
 
-	else if (istype(W, /obj/item/weapon/wrench))
+	else if (W.tool_behaviour == TOOL_WRENCH)
 		if(!bulb)
-			user << "<span class='notice'>You start unsecuring the flasher frame...</span>"
-			playsound(loc, W.usesound, 50, 1)
-			if(do_after(user, 40*W.toolspeed, target = src))
-				user << "<span class='notice'>You unsecure the flasher frame.</span>"
+			to_chat(user, "<span class='notice'>You start unsecuring the flasher frame...</span>")
+			if(W.use_tool(src, user, 40, volume=50))
+				to_chat(user, "<span class='notice'>You unsecure the flasher frame.</span>")
 				deconstruct(TRUE)
 		else
-			user << "<span class='warning'>Remove a flashbulb from [src] first!</span>"
+			to_chat(user, "<span class='warning'>Remove a flashbulb from [src] first!</span>")
 	else
 		return ..()
 
@@ -92,56 +94,54 @@
 	if (anchored)
 		return flash()
 
-/obj/machinery/flasher/run_obj_armor(damage_amount, damage_type, damage_flag = 0, attack_dir)
-	if(damage_flag == "melee" && damage_amount < 10) //any melee attack below 10 dmg does nothing
-		return 0
-	. = ..()
-
 /obj/machinery/flasher/proc/flash()
 	if (!powered() || !bulb)
 		return
 
-	if (bulb.crit_fail || (last_flash && world.time < src.last_flash + 150))
+	if (bulb.burnt_out || (last_flash && world.time < src.last_flash + 150))
 		return
 
 	if(!bulb.flash_recharge(30)) //Bulb can burn out if it's used too often too fast
 		power_change()
 		return
-	bulb.times_used ++
 
-	playsound(src.loc, 'sound/weapons/flash.ogg', 100, 1)
+	playsound(src.loc, 'sound/weapons/flash.ogg', 100, TRUE)
 	flick("[base_state]_flash", src)
+	flash_lighting_fx(FLASH_LIGHT_RANGE, light_power, light_color)
 	last_flash = world.time
 	use_power(1000)
 
+	var/flashed = FALSE
 	for (var/mob/living/L in viewers(src, null))
 		if (get_dist(src, L) > range)
 			continue
 
 		if(L.flash_act(affect_silicon = 1))
-			L.Weaken(strength)
+			L.Paralyze(strength)
+			flashed = TRUE
+
+	if(flashed)
+		bulb.times_used++
 
 	return 1
 
 
 /obj/machinery/flasher/emp_act(severity)
-	if(!(stat & (BROKEN|NOPOWER)))
+	. = ..()
+	if(!(stat & (BROKEN|NOPOWER)) && !(. & EMP_PROTECT_SELF))
 		if(bulb && prob(75/severity))
 			flash()
 			bulb.burn_out()
 			power_change()
-	..()
 
 /obj/machinery/flasher/obj_break(damage_flag)
-	if(!(flags & NODECONSTRUCT))
-		if(!(stat & BROKEN))
-			stat |= BROKEN
-			if(bulb)
-				bulb.burn_out()
-				power_change()
+	. = ..()
+	if(. && bulb)
+		bulb.burn_out()
+		power_change()
 
 /obj/machinery/flasher/deconstruct(disassembled = TRUE)
-	if(!(flags & NODECONSTRUCT))
+	if(!(flags_1 & NODECONSTRUCT_1))
 		if(bulb)
 			bulb.forceMove(loc)
 			bulb = null
@@ -149,10 +149,14 @@
 			var/obj/item/wallframe/flasher/F = new(get_turf(src))
 			transfer_fingerprints_to(F)
 			F.id = id
-			playsound(loc, 'sound/items/Deconstruct.ogg', 50, 1)
+			playsound(loc, 'sound/items/deconstruct.ogg', 50, TRUE)
 		else
 			new /obj/item/stack/sheet/metal (loc, 2)
 	qdel(src)
+
+/obj/machinery/flasher/portable/Initialize()
+	. = ..()
+	proximity_monitor = new(src, 0)
 
 /obj/machinery/flasher/portable/HasProximity(atom/movable/AM)
 	if (last_flash && world.time < last_flash + 150)
@@ -163,33 +167,25 @@
 		if (M.m_intent != MOVE_INTENT_WALK && anchored)
 			flash()
 
-/obj/machinery/flasher/portable/attackby(obj/item/weapon/W, mob/user, params)
-	if (istype(W, /obj/item/weapon/wrench))
-		playsound(src.loc, W.usesound, 100, 1)
+/obj/machinery/flasher/portable/attackby(obj/item/W, mob/user, params)
+	if (W.tool_behaviour == TOOL_WRENCH)
+		W.play_tool_sound(src, 100)
 
 		if (!anchored && !isinspace())
-			user << "<span class='notice'>[src] is now secured.</span>"
+			to_chat(user, "<span class='notice'>[src] is now secured.</span>")
 			add_overlay("[base_state]-s")
-			anchored = 1
+			setAnchored(TRUE)
 			power_change()
-			add_to_proximity_list(src, range)
+			proximity_monitor.SetRange(range)
 		else
-			user << "<span class='notice'>[src] can now be moved.</span>"
+			to_chat(user, "<span class='notice'>[src] can now be moved.</span>")
 			cut_overlays()
-			anchored = 0
+			setAnchored(FALSE)
 			power_change()
-			remove_from_proximity_list(src, range)
+			proximity_monitor.SetRange(0)
 
 	else
 		return ..()
-
-/obj/machinery/flasher/portable/Destroy()
-	remove_from_proximity_list(src, range)
-	return ..()
-
-/obj/machinery/flasher/protable/Moved(oldloc)
-	remove_from_proximity_list(oldloc, range)
-	return ..()
 
 /obj/item/wallframe/flasher
 	name = "mounted flash frame"
@@ -200,8 +196,8 @@
 	var/id = null
 
 /obj/item/wallframe/flasher/examine(mob/user)
-	..()
-	user << "<span class='notice'>Its channel ID is '[id]'.</span>"
+	. = ..()
+	. += "<span class='notice'>Its channel ID is '[id]'.</span>"
 
 /obj/item/wallframe/flasher/after_attach(var/obj/O)
 	..()
